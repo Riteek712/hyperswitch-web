@@ -18,6 +18,8 @@ let make = (~children, ~paymentMode, ~setIntegrateErrorError, ~logger, ~initTime
   let (launchTime, setLaunchTime) = React.useState(_ => 0.0)
   let {showCardFormByDefault, paymentMethodOrder} = optionsPayment
   let (_, setPaymentMethodCollectOptions) = Recoil.useRecoilState(paymentMethodCollectOptionAtom)
+  let url = RescriptReactRouter.useUrl()
+  let componentName = CardUtils.getQueryParamsDictforKey(url.search, "componentName")
 
   let divRef = React.useRef(Nullable.null)
 
@@ -35,6 +37,12 @@ let make = (~children, ~paymentMode, ~setIntegrateErrorError, ~logger, ~initTime
   let setUserAddressState = Recoil.useLoggedSetRecoilState(userAddressState, "state", logger)
   let setUserAddressCountry = Recoil.useLoggedSetRecoilState(userAddressCountry, "country", logger)
   let (_country, setCountry) = Recoil.useRecoilState(userCountry)
+  let (isCompleteCallbackUsed, setIsCompleteCallbackUsed) = Recoil.useRecoilState(
+    isCompleteCallbackUsed,
+  )
+  let (isPaymentButtonHandlerProvided, setIsPaymentButtonHandlerProvided) = Recoil.useRecoilState(
+    isPaymentButtonHandlerProvidedAtom,
+  )
 
   let optionsCallback = (optionsPayment: PaymentType.options) => {
     [
@@ -142,7 +150,10 @@ let make = (~children, ~paymentMode, ~setIntegrateErrorError, ~logger, ~initTime
 
   React.useEffect0(() => {
     messageParentWindow([("iframeMounted", true->JSON.Encode.bool)])
-    messageParentWindow([("applePayMounted", true->JSON.Encode.bool)])
+    messageParentWindow([
+      ("applePayMounted", true->JSON.Encode.bool),
+      ("componentName", componentName->JSON.Encode.string),
+    ])
     logger.setLogInitiated()
     let updatedState: PaymentType.loadType = switch paymentMethodList {
     | Loading =>
@@ -244,6 +255,15 @@ let make = (~children, ~paymentMode, ~setIntegrateErrorError, ~logger, ~initTime
               if dict->getDictIsSome("analyticsMetadata") {
                 let metadata = dict->getJsonObjectFromDict("analyticsMetadata")
                 logger.setMetadata(metadata)
+              }
+
+              if dict->getDictIsSome("onCompleteDoThisUsed") {
+                let isCallbackUsedVal = dict->Utils.getBool("onCompleteDoThisUsed", false)
+                setIsCompleteCallbackUsed(_ => isCallbackUsedVal)
+              }
+              if dict->getDictIsSome("isPaymentButtonHandlerProvided") {
+                let isSDKClick = dict->Utils.getBool("isPaymentButtonHandlerProvided", false)
+                setIsPaymentButtonHandlerProvided(_ => isSDKClick)
               }
               if dict->getDictIsSome("paymentOptions") {
                 let paymentOptions = dict->getDictFromObj("paymentOptions")

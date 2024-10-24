@@ -31,7 +31,7 @@ type lineItem = {
   \"type": string,
 }
 type shippingAddressChangeEvent = {shippingContact: JSON.t}
-type updatedOrderDetails = {newTotal: lineItem, newLineItems: array<lineItem>}
+type orderDetails = {newTotal: lineItem, newLineItems: array<lineItem>}
 type innerSession
 type session = {
   begin: unit => unit,
@@ -41,8 +41,8 @@ type session = {
   mutable onvalidatemerchant: event => unit,
   completeMerchantValidation: JSON.t => unit,
   mutable onpaymentauthorized: event => unit,
-  mutable onshippingcontactselected: shippingAddressChangeEvent => unit,
-  completeShippingContactSelection: updatedOrderDetails => unit,
+  mutable onshippingcontactselected: shippingAddressChangeEvent => promise<unit>,
+  completeShippingContactSelection: orderDetails => unit,
   completePayment: JSON.t => unit,
   \"STATUS_SUCCESS": string,
   \"STATUS_FAILURE": string,
@@ -184,4 +184,22 @@ let getPaymentRequestFromSession = (~sessionObj, ~componentName) => {
   }
 
   paymentRequest
+}
+
+let handleApplePayIframePostMessage = (msg, componentName, mountedIframeRef) => {
+  let isApplePayMessageSent = ref(false)
+
+  let iframes = Window.querySelectorAll("iframe")
+
+  iframes->Array.forEach(iframe => {
+    let iframeSrc = iframe->Window.getAttribute("src")->Option.getOr("")
+    if iframeSrc->String.includes(`componentName=${componentName}`) {
+      iframe->Js.Nullable.return->Window.iframePostMessage(msg)
+      isApplePayMessageSent := true
+    }
+  })
+
+  if !isApplePayMessageSent.contents {
+    mountedIframeRef->Window.iframePostMessage(msg)
+  }
 }
